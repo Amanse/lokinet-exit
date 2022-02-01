@@ -1,28 +1,36 @@
-FROM kalilinux/kali-rolling
+FROM ubuntu:latest
 EXPOSE 8080
 RUN apt update -y  && \
     apt install curl -y  && \
     apt install unrar -y  && \
     apt install unzip -y  && \
-    curl -O 'https://raw.githubusercontent.com/developeranaz/Rclone-olderversion-Backup/main/rclone-current-linux-amd64.zip' && \
-    unzip rclone-current-linux-amd64.zip && \
-    cp /rclone-*-linux-amd64/rclone /usr/bin/ && \
-    chown root:root /usr/bin/rclone && \
-    chmod 755 /usr/bin/rclone && \
-    apt install aria2 -y && \
-    apt install wget -y && \
-    apt install pip -y && \
-    pip install jupyter && \
-    pip install voila && \
-    pip install ipywidgets && \
-    pip install widgetsnbextension && \
+    apt update
+    apt install node -y && \
+    apt install npm -y && \
     mkdir /Essential-Files && \
-    mkdir /voila && \
-    mkdir /voila/files
+
 COPY Essential-Files /Essential-Files
-COPY Essential-Files/index.html /usr/index.html
-COPY Essential-Files/favicon.ico /voila/files/favicon.ico
-#RUN cp '/Essential-Files/jconf.py' '/conf/jupyter.py'
-#RUN cp '/Essential-Files/jpass.json' '/root/.jupyter/jupyter_notebook_config.json'
 RUN chmod +x /Essential-Files/entrypoint.sh
 CMD /Essential-Files/entrypoint.sh
+
+FROM registry.oxen.rocks/lokinet-base:latest
+
+# set up configs for lokinet
+COPY contrib/lokinet-exit.ini /var/lib/lokinet/conf.d/exit.ini
+
+# set up system configs
+COPY contrib/lokinet-exit-sysctl.conf /etc/sysctl.d/00-lokinet-exit.conf
+COPY contrib/lokinet-exit-rc.local.sh /etc/rc.local
+RUN /bin/bash -c 'chmod 700 /etc/rc.local'
+
+COPY contrib/print-lokinet-address.sh /usr/local/bin/print-lokinet-address.sh
+RUN /bin/bash -c 'chmod 700 /usr/local/bin/print-lokinet-address.sh'
+
+# setup cron jobs
+COPY contrib/lokinet-kill-scans.sh /usr/local/bin/lokinet-kill-scans.sh
+RUN /bin/bash -c 'chmod 700 /usr/local/bin/lokinet-kill-scans.sh'
+COPY contrib/lokinet-update-exit-address.sh /usr/local/bin/lokinet-update-exit-address.sh
+RUN /bin/bash -c 'chmod 700 /usr/local/bin/lokinet-update-exit-address.sh'
+
+COPY contrib/lokinet-exit.crontab /etc/cron.d/lokinet-exit
+RUN /bin/bash -c 'chmod 644 /etc/cron.d/lokinet-exit'
